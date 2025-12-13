@@ -18,9 +18,9 @@ const History = () => {
 
   const clearHistory = async () => {
     try {
-      // Chamada para API que vai apagar o histórico no banco de dados
-      await api.delete("/api/historicoLimpar"); // Supondo que você tenha uma rota que limpe o histórico
-      setHistoryData([]); // Limpa os dados do histórico na interface
+
+      await api.delete("/api/historicoLimpar");
+      setHistoryData([]); 
       toast.success("Histórico limpo com sucesso!");
     } catch (error) {
       console.error("Erro ao limpar histórico:", error);

@@ -10,7 +10,6 @@ import {
   Power,
   Filter,
   Zap,
-  Beaker,
   Wind,
   Timer
 } from "lucide-react";
@@ -18,17 +17,18 @@ import { toast } from "sonner";
 import api from "@/config/axiosConfig.js";
 
 const Index = () => {
-  // Recuperando o estado salvo do localStorage ou usando o valor padrão
-  const [pumpActive, setPumpActive] = useState(() => {
-    const savedState = localStorage.getItem("pumpActive");
-    return savedState ? JSON.parse(savedState) : true;
-  });
 
+  // --- ESTADOS DO SISTEMA ---
+  const [temperaturaAtual, setTemperaturaAtual] = useState(0);
+  const [phAtual, setPhAtual] = useState(7.0); // Novo estado para o pH
+  const [nivelAgua, setNivelAgua] = useState(false);
+
+  // Estados dos Controles
+  const [pumpActive, setPumpActive] = useState(false);
   const [filterActive, setFilterActive] = useState(() => {
     const savedState = localStorage.getItem("filterActive");
     return savedState ? JSON.parse(savedState) : true;
   });
-
   const [cleaningActive, setCleaningActive] = useState(() => {
     const savedState = localStorage.getItem("cleaningActive");
     return savedState ? JSON.parse(savedState) : false;
@@ -36,6 +36,7 @@ const Index = () => {
 
   const user = localStorage.getItem("userName");
 
+  // --- FUNÇÃO PARA REGISTRAR LOGS ---
   const registrarHistorico = async (descricao: string) => {
     try {
       await api.post("/api/historicoAdd", { descricao, user });
@@ -44,12 +45,26 @@ const Index = () => {
     }
   };
 
+  // --- CONTROLE DA BOMBA (TOGGLE) ---
   const handlePumpToggle = async (checked: boolean) => {
+    // 1. Atualiza visualmente na hora (Otimista)
     setPumpActive(checked);
-    localStorage.setItem("pumpActive", JSON.stringify(checked)); 
-    const message = checked ? "Bomba ativada" : "Bomba desativada";
-    toast.success(message);
-    await registrarHistorico(message);
+    
+    const acao = checked ? "LIGAR" : "DESLIGAR";
+    const message = checked ? "Comando: Ligar Bomba enviado" : "Comando: Desligar Bomba enviado";
+    
+    try {
+        // ATENÇÃO: Você precisa criar esse endpoint no Java se quiser controle manual pelo site!
+        // Se for só automático, esse botão serve apenas visualmente.
+        await api.post("/api/sensor/comando-bomba", { ligar: checked });
+        toast.success(message);
+        await registrarHistorico(`Usuário alterou bomba para: ${acao}`);
+    } catch (error) {
+        toast.error("Erro ao enviar comando para a bomba.");
+        console.error(error);
+        // Se der erro, volta o botão para o estado original
+        setPumpActive(!checked);
+    }
   };
 
   const handleFilterToggle = async (checked: boolean) => {
@@ -68,6 +83,36 @@ const Index = () => {
     await registrarHistorico(message);
   };
 
+  // --- BUSCA DE DADOS (POLLING 5 SEGUNDOS) ---
+  useEffect(() => {
+    const buscarDados = async () => {
+      try {
+        const response = await api.get("/api/sensor/atual");
+        
+        if (response.data) {
+          // Mapeando os dados que vêm do JAVA (SensorController / LeituraSensor)
+          setTemperaturaAtual(response.data.temperatura || 0);
+          setNivelAgua(response.data.nivelOk); // Boolean
+          
+          // Novo: Atualiza o pH
+          if (response.data.ph) {
+            setPhAtual(response.data.ph);
+          }
+
+          // Novo: Sincroniza o botão com o estado REAL da bomba (vindo do Arduino)
+          // Se o Arduino ligou a bomba sozinho, o botão no site vai ficar verde sozinho
+          setPumpActive(response.data.bombaAtiva);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar sensores:", error);
+      }
+    };
+
+    buscarDados();
+    const intervalo = setInterval(buscarDados, 5000); // Atualiza a cada 5s
+    return () => clearInterval(intervalo);
+  }, []); 
+
   return (
     <div className="space-y-8">
         <section className="mb-12 text-center">
@@ -85,26 +130,28 @@ const Index = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <MetricCard
               title="Temperatura"
-              value="27"
+              value={temperaturaAtual.toFixed(1)}
               unit="°C"
               icon={Thermometer}
-              status="normal"
+              status={temperaturaAtual < 30 ? "normal" : "warning"}
               gradient
             />
             
+            {/* CARD DE PH ATUALIZADO */}
             <MetricCard
               title="pH da Água"
-              value="7.2"
+              value={phAtual.toFixed(1)} // Mostra o valor real com 1 casa decimal
               unit="pH"
               icon={Droplets}
-              status="normal"
+              // Lógica de cores: pH ideal entre 7.0 e 7.6
+              status={(phAtual >= 7.0 && phAtual <= 7.6) ? "normal" : "warning"}
               gradient
             />
             
             <MetricCard
-              title="Alcalinidade"
-              value="95"
-              unit="ppm"
+              title="Turbidez"
+              value="0.5"
+              unit="NTU"
               icon={Activity}
               status="normal"
               gradient
@@ -120,11 +167,11 @@ const Index = () => {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <ControlCard
-              title="Bomba de Circulação"
+              title="Bomba de Água"
               description={pumpActive ? "Em operação" : "Desligada"}
               icon={Zap}
               isActive={pumpActive}
-              onToggle={handlePumpToggle}
+              onToggle={handlePumpToggle} 
             />
             
             <ControlCard
@@ -148,17 +195,6 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-2">
             <ChartCard />
-          </div>
-          
-          <div className="space-y-4">
-            <CircularGauge
-              title="Consumo de Energia"
-              value={65}
-              maxValue={100}
-              unit="kWh"
-              icon={Zap}
-              color="warning"
-            />
           </div>
         </div>
 
@@ -187,13 +223,14 @@ const Index = () => {
               color="success"
             />
             
+            {/* GAUGE DE NÍVEL ATUALIZADO */}
             <CircularGauge
               title="Nível de Água"
-              value={85}
+              value={nivelAgua ? 100 : 20} // Se true (cheio) = 100%, se false = 20%
               maxValue={100}
               unit="%"
               icon={Droplets}
-              color="primary"
+              color={nivelAgua ? "primary" : "warning"}
             />
           </div>
         </section>

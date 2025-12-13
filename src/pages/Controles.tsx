@@ -6,10 +6,9 @@ import api from "@/config/axiosConfig.js";
 
 const Controls = () => {
 
-  const [pumpActive, setPumpActive] = useState(() => {
-    const savedState = localStorage.getItem("pumpActive2");
-    return savedState ? JSON.parse(savedState) : true;
-  });
+  // --- MUDANÇA 1: O estado inicial da bomba não depende mais do localStorage ---
+  // Ele vai ser atualizado pela API logo em seguida.
+  const [pumpActive, setPumpActive] = useState(false);
 
   const [filterActive, setFilterActive] = useState(() => {
     const savedState = localStorage.getItem("filterActive2");
@@ -28,6 +27,32 @@ const Controls = () => {
 
   const user = localStorage.getItem("userName");
 
+  // --- MUDANÇA 2: Adicionamos o "Espião" que busca os dados do sensor ---
+  useEffect(() => {
+    const buscarDados = async () => {
+      try {
+        const response = await api.get("/api/sensor/atual");
+        
+        if (response.data) {
+          // LÓGICA AUTOMÁTICA DA BOMBA:
+          // O Back-end manda: nivelCheio = true (1) ou false (0)
+          // Se nivelCheio for FALSE (Vazio), a bomba deve estar ATIVA (True)
+          // O sinal de exclamação (!) inverte o valor.
+          setPumpActive(!response.data.nivelCheio);
+        }
+      } catch (error) {
+        console.error("Erro ao sincronizar controles:", error);
+      }
+    };
+
+    // Busca agora
+    buscarDados();
+    // E repete a cada 5 segundos
+    const intervalo = setInterval(buscarDados, 5000);
+
+    return () => clearInterval(intervalo);
+  }, []);
+
   const registrarHistorico = async (descricao: string) => {
     try {
       await api.post("/api/historicoAdd", { descricao, user });
@@ -37,9 +62,11 @@ const Controls = () => {
   };
 
   const handlePumpToggle = async (checked: boolean) => {
+    // OBS: Como o sensor está controlando, se você clicar aqui, 
+    // ele vai mudar visualmente, mas daqui a 5 segundos o sensor vai corrigir de volta.
+    // Isso é normal em sistemas monitorados.
     setPumpActive(checked);
-    localStorage.setItem("pumpActive2", JSON.stringify(checked)); 
-    const message = checked ? "Bomba ativada" : "Bomba desativada";
+    const message = checked ? "Bomba ativada manualmente" : "Bomba desativada manualmente";
     toast.success(message);
     await registrarHistorico(message);
   };
@@ -68,45 +95,6 @@ const Controls = () => {
     await registrarHistorico(message);
   };
 
-  // Função para gerar a mensagem amigável
-  const getToggleMessage = (name: string, checked: boolean) => {
-    switch (name) {
-      case "pumpActive":
-        return checked ? "Bomba ligada" : "Bomba desligada";
-      case "filterActive":
-        return checked ? "Filtro ativado" : "Filtro desativado";
-      case "heaterActive":
-        return checked ? "Aquecedor ligado" : "Aquecedor desligado";
-      case "timerActive":
-        return checked ? "Programação automática ativada" : "Programação automática desativada";
-      case "cleaningActive":
-        return checked ? "Limpeza iniciada" : "Limpeza pausada";
-      case "lightsActive":
-        return checked ? "Luzes ligadas" : "Luzes desligadas";
-      default:
-        return `${name} ${checked ? "ativado" : "desativado"}`;
-    }
-  };
-
-  // Função para salvar o estado no localStorage
-  const saveState = (name: string, value: boolean) => {
-    localStorage.setItem(name, JSON.stringify(value));
-  };
-
-  // Função que lida com o toggle e salva a mudança
-  const handleToggle = async (name: string, checked: boolean) => {
-    const message = getToggleMessage(name, checked);
-
-    // Exibe a notificação de sucesso
-    toast.success(message);
-
-    // Salva o estado no localStorage
-    saveState(name, checked);
-
-    // Registra o histórico no banco de dados
-    await registrarHistorico(message);
-  };
-
   return (
     <div className="space-y-8">
       <div>
@@ -116,8 +104,9 @@ const Controls = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ControlCard
-          title="Bomba de Circulação"
-          description={pumpActive ? "Bomba em Operação" : "Bomba Desligada"}
+          title="Bomba de Água"
+          // Muda a descrição dinamicamente baseado no estado automático
+          description={pumpActive ? "Ativada por Nível Baixo" : "Desligada (Nível OK)"}
           icon={Zap}
           isActive={pumpActive}
           onToggle={handlePumpToggle}
@@ -139,13 +128,6 @@ const Controls = () => {
           onToggle={handleHeaterToggle}
         />
         
-        <ControlCard
-          title="Programação Automática"
-          description={timerActive ? "Agendamentos ativos" : "Agendamentos Desativados"}
-          icon={Timer}
-          isActive={timerActive}
-          onToggle={handleTimerToggle}
-        />
       </div>
     </div>
   );

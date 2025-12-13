@@ -27,12 +27,6 @@ const Monitoramento = () => {
           </Card>
 
           <Card className="p-6 bg-card/50 border-border/50">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">Nível de Água</h3>
-            <p className="text-4xl font-bold">85%</p>
-            <p className="text-sm text-success mt-1">Adequado</p>
-          </Card>
-
-          <Card className="p-6 bg-card/50 border-border/50">
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Turbidez</h3>
             <p className="text-4xl font-bold">0.5 NTU</p>
             <p className="text-sm text-success mt-1">Cristalina</p>
