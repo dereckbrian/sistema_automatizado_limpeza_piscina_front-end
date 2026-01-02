@@ -27,16 +27,11 @@ const menuItems = [
     url: "/dashboard",
     icon: LayoutDashboard,
   },
-  {
-    title: "Monitoramento",
-    url: "/monitoramento",
-    icon: Activity,
-  },
-  {
-    title: "Controles",
-    url: "/controles",
-    icon: Sliders,
-  },
+  // {
+  //   title: "Monitoramento",
+  //   url: "/monitoramento",
+  //   icon: Activity,
+  // },
   {
     title: "Histórico",
     url: "/historico",

@@ -18,6 +18,9 @@ const Auth = () => {
     confirmPassword: "",
     name: "",
     role: "user",
+    larguraPiscina: "",
+    comprimentoPiscina: "",
+    profundidadePiscina: "",
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -70,6 +73,9 @@ const Auth = () => {
           email: formData.email,
           password: formData.password,
           role: formData.role,
+          larguraPiscina: parseFloat(formData.larguraPiscina),
+          comprimentoPiscina: parseFloat(formData.comprimentoPiscina),
+          profundidadePiscina: parseFloat(formData.profundidadePiscina),
         });
       }
 
@@ -80,6 +86,8 @@ const Auth = () => {
       if (response.data.name) {
         localStorage.setItem("userName", response.data.name);
       }
+
+      localStorage.setItem("userEmail", formData.email);
 
       toast({
         title: "Sucesso!",
@@ -174,6 +182,52 @@ const Auth = () => {
                 />
               </div>
 
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="larguraPiscina">Largura da piscina</Label>
+                  <div className="relative">
+                    <Input
+                      id="larguraPiscina"
+                      name="larguraPiscina"
+                      type="number"
+                      placeholder="5m"
+                      value={formData.larguraPiscina}
+                      onChange={handleInputChange}
+                      required={!isLogin}
+                      className="bg-background/50 border-border/50 pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+
+                  <Label htmlFor="larguraPiscina">Profundidade da piscina</Label>
+                  <div className="relative">
+                    <Input
+                      id="profundidadePiscina"
+                      name="profundidadePiscina"
+                      type="number"
+                      placeholder="1.8m"
+                      value={formData.profundidadePiscina}
+                      onChange={handleInputChange}
+                      required={!isLogin}
+                      className="bg-background/50 border-border/50 pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+
+                  <Label htmlFor="larguraPiscina">Comprimento da piscina</Label>
+                  <div className="relative">
+                    <Input
+                      id="comprimentoPiscina"
+                      name="comprimentoPiscina"
+                      type="number"
+                      placeholder="10m"
+                      value={formData.comprimentoPiscina}
+                      onChange={handleInputChange}
+                      required={!isLogin}
+                      className="bg-background/50 border-border/50 pr-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <div className="relative">
@@ -222,6 +276,7 @@ const Auth = () => {
                 </div>
               )}
 
+
               <Button
                 // Removida a chamada a 'quandoClicado'. O 'type="submit"' do botão
                 // e o 'onSubmit={handleSubmit}' do <form> são suficientes.
@@ -231,7 +286,7 @@ const Auth = () => {
                 {isLogin ? "Entrar" : "Criar conta"} 
               </Button>
 
-              {isLogin && (
+              {/* {isLogin && (
                 <Button
                   type="button"
                   variant="link"
@@ -239,7 +294,7 @@ const Auth = () => {
                 >
                   Esqueceu sua senha?
                 </Button>
-              )}
+              )} */}
             </form>
 
             <div className="mt-6 text-center">
