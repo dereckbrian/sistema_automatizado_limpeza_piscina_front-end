@@ -55,6 +55,22 @@ const Index = () => {
     carregarConfigsUsuario();
   }, []);
 
+  const salvarAlertaNoBanco = async (titulo: string, mensagem: string, tipo: string) => {
+     const email = localStorage.getItem("userEmail");
+     if (!email) return;
+
+     try {
+       await api.post("/api/alertas/criar", {
+         email,
+         titulo,
+         mensagem,
+         tipo
+       });
+     } catch (error) {
+       console.error("Erro ao salvar alerta", error);
+     }
+  };
+
   // --- FUNÇÃO PARA REGISTRAR LOGS ---
   const registrarHistorico = async (descricao: string) => {
     try {
@@ -80,69 +96,82 @@ const Index = () => {
     }
   };
 
-  // --- LÓGICA QUÍMICA COMPLETA ---
+  // --- LÓGICA QUÍMICA (Sem trava de tempo) ---
   const verificarQuimica = (ph: number, turbidez: number, temperatura: number, volLitros: number) => {
+    
+    // --- 1. VERIFICAÇÃO INDEPENDENTE: TEMPERATURA ---
+    // (Fica fora do else/if dos produtos químicos para ser verificado sempre)
+    if (temperatura < minTempConfig) {
+       const titulo = "Temperatura Baixa";
+       const msg = `A água está a ${temperatura}°C (Mínimo: ${minTempConfig}°C).`;
+       
+       // Só avisa (Toast azul)
+       toast.info(titulo, {
+          description: msg,
+          duration: 5000,
+       });
+       
+       // Salva no Histórico de Alertas
+       salvarAlertaNoBanco(titulo, msg, "info");
+    }
+
+    // --- 2. VERIFICAÇÃO QUÍMICA (pH e Turbidez) ---
     let produto = "";
     let dosagemPor1000 = 0;
     let motivo = "";
     let unidade = "ml";
 
-    // 1. Lógica de pH (Baseada na Tabela)
+    // Prioridade 1: pH (O mais importante)
     if (ph < 6.8) {
       produto = "pH+ (Líquido)";
-      motivo = "pH muito baixo (Abaixo de 6.8)";
+      motivo = "pH muito baixo (< 6.8)";
       dosagemPor1000 = 20; 
     } else if (ph >= 6.8 && ph < 7.2) { 
        if (ph <= 7.0) {
           produto = "pH+ (Líquido)";
-          motivo = "pH levemente baixo (Entre 6.8 e 7.0)";
+          motivo = "pH levemente baixo";
           dosagemPor1000 = 15; 
        }
     } else if (ph > 7.6) {
       produto = "pH- (Líquido)";
-      motivo = "pH alto (Acima de 7.6)";
+      motivo = "pH alto (> 7.6)";
       dosagemPor1000 = 10; 
     }
-
-    // 2. Lógica de Turbidez (Alerta se estiver suja)
+    // Prioridade 2: Turbidez (Só verifica se o pH estiver OK, para não conflitar tratamentos)
     else if (turbidez > 3.0) {
       produto = "Clarificante";
       motivo = `Água turva (${turbidez} NTU)`;
-      dosagemPor1000 = 4; // Exemplo: 4ml por 1000L
-      unidade = "ml";
+      dosagemPor1000 = 4;
     }
 
-    // 3. Lógica de Temperatura (Aviso Visual apenas)
-    else if (temperatura < minTempConfig) {
-       // Não gera modal de dosagem, apenas avisa
-       toast.info("Temperatura Baixa", {
-          description: `A água está a ${temperatura}°C (Mínimo definido: ${minTempConfig}°C).`,
-          duration: 5000,
-       });
-       return; // Sai da função para não abrir o modal lá embaixo
-    }
-
-    // --- SE TIVER RECOMENDAÇÃO QUÍMICA ---
+    // --- 3. AÇÃO: SE PRECISAR DE PRODUTO ---
     if (produto !== "") {
       const qtdTotal = (volLitros / 1000) * dosagemPor1000;
       
+      // Prepara dados para o Modal
       const dadosSugestao = {
         produto,
         motivo,
         quantidade: `${qtdTotal.toFixed(0)} ${unidade}`
       };
-
       setSuggestionData(dadosSugestao);
 
-      // Dispara o Toast com lógica de fechar (Dismiss) ao clicar
+      // A. Salva no Banco de Dados (Você tinha esquecido isso!)
+      salvarAlertaNoBanco(
+          `Atenção: ${motivo}`, 
+          `Necessário aplicar ${qtdTotal.toFixed(0)} ${unidade} de ${produto}`, 
+          "warning"
+      );
+
+      // B. Dispara o Toast Visual
       const toastId = toast.warning(`Atenção: ${motivo}`, {
-        description: "Clique aqui para ver a dosagem de correção.",
-        duration: Infinity, // Fica na tela até clicar
+        description: "Ação necessária. Clique para ver a solução.",
+        duration: Infinity, // Fica até clicar
         action: {
           label: "Ver Dosagem",
           onClick: () => {
-             setIsModalOpen(true); // Abre o modal
-             toast.dismiss(toastId); // Fecha o aviso
+             setIsModalOpen(true);
+             toast.dismiss(toastId); 
           },
         },
       });
