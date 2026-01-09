@@ -10,7 +10,7 @@ const Index = () => {
           <Droplets className="w-10 h-10 text-primary-foreground" />
         </div>
         <h1 className="mb-4 text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          SmartPool
+          IF-Pool
         </h1>
         <p className="text-xl text-muted-foreground mb-8">
           Sistema Automatizado para Piscinas

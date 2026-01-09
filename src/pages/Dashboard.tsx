@@ -3,7 +3,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { ControlCard } from "@/components/ControlCard";
 import { CircularGauge } from "@/components/CircularGauge";
 import { ChartCard } from "@/components/ChartCard";
-import { SuggestionModal } from "@/components/ui/SuggestionModal"; // Certifique-se que o caminho está certo
+import { SuggestionModal } from "@/components/ui/SuggestionModal";
 import { 
   Thermometer, 
   Droplets, 
@@ -17,32 +17,23 @@ import api from "@/config/axiosConfig.js";
 
 const Index = () => {
 
-  // --- ESTADOS DO SISTEMA ---
   const [temperaturaAtual, setTemperaturaAtual] = useState(0);
   const [phAtual, setPhAtual] = useState(7.0); 
   const [nivelAgua, setNivelAgua] = useState(false);
-  const [turbidezAtual, setTurbidezAtual] = useState(0.5); // Novo estado para Turbidez
-
-  // Configuração do Usuário (Temperatura Mínima)
-  const [minTempConfig, setMinTempConfig] = useState(25); // Valor padrão caso não ache
-
-  // Estados para o Modal e Volume
+  const [turbidezAtual, setTurbidezAtual] = useState(0.5); 
+  const [minTempConfig, setMinTempConfig] = useState(25); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [suggestionData, setSuggestionData] = useState(null);
   const [volumePiscina, setVolumePiscina] = useState(0);
-
-  // Estados dos Controles
   const [pumpActive, setPumpActive] = useState(false);
-  
+  const [chartData, setChartData] = useState([]);
   const user = localStorage.getItem("userName");
 
-  // --- 1. BUSCAR CONFIGURAÇÕES DO USUÁRIO AO INICIAR ---
   useEffect(() => {
     const carregarConfigsUsuario = async () => {
-      const email = localStorage.getItem("userEmail"); // Precisa ter salvo isso no Login
+      const email = localStorage.getItem("userEmail"); 
       if (email) {
         try {
-          // Busca os dados do usuário para pegar a temperatura minima configurada
           const res = await api.get(`/api/user/me?email=${email}`);
           if (res.data && res.data.temperaturaMinima) {
              setMinTempConfig(res.data.temperaturaMinima);
@@ -71,10 +62,13 @@ const Index = () => {
      }
   };
 
-  // --- FUNÇÃO PARA REGISTRAR LOGS ---
   const registrarHistorico = async (descricao: string) => {
+    const email = localStorage.getItem("userEmail"); 
+    
+    if (!email) return;
+
     try {
-      await api.post("/api/historicoAdd", { descricao, user });
+      await api.post("/api/historicoAdd", { descricao, email });
     } catch (error) {
       console.error("Erro ao registrar histórico:", error);
     }
@@ -96,32 +90,55 @@ const Index = () => {
     }
   };
 
-  // --- LÓGICA QUÍMICA (Sem trava de tempo) ---
+  const formatarHora = (dataISO: string) => {
+    const data = new Date(dataISO);
+    return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const carregarHistorico = async () => {
+    try {
+      const response = await api.get("/api/sensor/historico");
+      if (response.data) {
+        const dadosFormatados = response.data.map((item: any) => ({
+          horario: formatarHora(item.dataHora),
+          temp: item.temperatura,
+          ph: item.ph,
+          turbidez: item.turbidez !== undefined ? item.turbidez : 0
+        }));
+        setChartData(dadosFormatados);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar histórico", error);
+    }
+  };
+
+  useEffect(() => {
+    const buscarDados = async () => {
+       await carregarHistorico();
+    };
+
+    buscarDados();
+    const intervalo = setInterval(buscarDados, 10000); 
+    return () => clearInterval(intervalo);
+  }, [minTempConfig]);
+
   const verificarQuimica = (ph: number, turbidez: number, temperatura: number, volLitros: number) => {
-    
-    // --- 1. VERIFICAÇÃO INDEPENDENTE: TEMPERATURA ---
-    // (Fica fora do else/if dos produtos químicos para ser verificado sempre)
+
     if (temperatura < minTempConfig) {
        const titulo = "Temperatura Baixa";
        const msg = `A água está a ${temperatura}°C (Mínimo: ${minTempConfig}°C).`;
-       
-       // Só avisa (Toast azul)
        toast.info(titulo, {
           description: msg,
           duration: 5000,
        });
-       
-       // Salva no Histórico de Alertas
        salvarAlertaNoBanco(titulo, msg, "info");
     }
 
-    // --- 2. VERIFICAÇÃO QUÍMICA (pH e Turbidez) ---
     let produto = "";
     let dosagemPor1000 = 0;
     let motivo = "";
     let unidade = "ml";
 
-    // Prioridade 1: pH (O mais importante)
     if (ph < 6.8) {
       produto = "pH+ (Líquido)";
       motivo = "pH muito baixo (< 6.8)";
@@ -137,18 +154,14 @@ const Index = () => {
       motivo = "pH alto (> 7.6)";
       dosagemPor1000 = 10; 
     }
-    // Prioridade 2: Turbidez (Só verifica se o pH estiver OK, para não conflitar tratamentos)
     else if (turbidez > 3.0) {
       produto = "Clarificante";
       motivo = `Água turva (${turbidez} NTU)`;
       dosagemPor1000 = 4;
     }
 
-    // --- 3. AÇÃO: SE PRECISAR DE PRODUTO ---
     if (produto !== "") {
       const qtdTotal = (volLitros / 1000) * dosagemPor1000;
-      
-      // Prepara dados para o Modal
       const dadosSugestao = {
         produto,
         motivo,
@@ -156,17 +169,15 @@ const Index = () => {
       };
       setSuggestionData(dadosSugestao);
 
-      // A. Salva no Banco de Dados (Você tinha esquecido isso!)
       salvarAlertaNoBanco(
           `Atenção: ${motivo}`, 
           `Necessário aplicar ${qtdTotal.toFixed(0)} ${unidade} de ${produto}`, 
           "warning"
       );
 
-      // B. Dispara o Toast Visual
       const toastId = toast.warning(`Atenção: ${motivo}`, {
         description: "Ação necessária. Clique para ver a solução.",
-        duration: Infinity, // Fica até clicar
+        duration: Infinity,
         action: {
           label: "Ver Dosagem",
           onClick: () => {
@@ -178,7 +189,6 @@ const Index = () => {
     }
   };
 
-  // --- BUSCAR DADOS DO SENSOR (LOOP) ---
   useEffect(() => {
     const buscarDados = async () => {
       try {
@@ -186,13 +196,11 @@ const Index = () => {
         
         if (response.data && response.data.leitura) {
           const dados = response.data.leitura;
-          // Pega o volume que veio do Back-end
           const vol = response.data.volumeLitros || 0;
 
           setTemperaturaAtual(dados.temperatura || 0);
           setNivelAgua(dados.nivelOk);
           setPumpActive(dados.bombaAtiva);
-          // Se o backend não mandar turbidez ainda, usa 0.5 fixo pra não quebrar
           const valTurbidez = dados.turbidez !== undefined ? dados.turbidez : 0.5;
           setTurbidezAtual(valTurbidez);
           
@@ -201,9 +209,7 @@ const Index = () => {
           if (dados.ph) {
             setPhAtual(dados.ph);
             
-            // Só verifica química se tiver volume válido
             if (vol > 0) {
-               // Chama a função passando todos os dados atuais e a config de temperatura
                verificarQuimica(dados.ph, valTurbidez, dados.temperatura, vol);
             }
           }
@@ -214,9 +220,9 @@ const Index = () => {
     };
 
     buscarDados();
-    const intervalo = setInterval(buscarDados, 10000); // Atualiza a cada 10s
+    const intervalo = setInterval(buscarDados, 10000); 
     return () => clearInterval(intervalo);
-  }, [minTempConfig]); // Recria o loop se a config de temperatura mudar
+  }, [minTempConfig]); 
 
   return (
     <div className="space-y-8 relative"> 
@@ -238,7 +244,6 @@ const Index = () => {
               value={temperaturaAtual.toFixed(1)}
               unit="°C"
               icon={Thermometer}
-              // Fica laranja se estiver abaixo do configurado pelo usuário
               status={temperaturaAtual < minTempConfig ? "warning" : "normal"}
               gradient
             />
@@ -248,7 +253,6 @@ const Index = () => {
               value={phAtual.toFixed(1)}
               unit="pH"
               icon={Droplets}
-              // Fica verde APENAS se estiver entre 7.2 e 7.8
               status={(phAtual >= 7.2 && phAtual <= 7.8) ? "normal" : "warning"}
               gradient
             />
@@ -258,7 +262,6 @@ const Index = () => {
               value={turbidezAtual.toString()}
               unit="NTU"
               icon={Activity}
-              // Fica laranja se estiver muito turva (> 3.0)
               status={turbidezAtual > 3.0 ? "warning" : "normal"}
               gradient
             />
@@ -283,48 +286,11 @@ const Index = () => {
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div className="lg:col-span-2">
-            <ChartCard />
+          <div className="lg:col-span-3">
+            <ChartCard data={chartData} />
           </div>
         </div>
 
-        <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
-            <Timer className="h-6 w-6 text-primary" />
-            Estatísticas de Operação
-          </h2>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <CircularGauge
-              title="Tempo de Filtragem Hoje"
-              value={6.5}
-              maxValue={8}
-              unit="horas"
-              icon={Timer}
-              color="accent"
-            />
-            
-            <CircularGauge
-              title="Eficiência do Sistema"
-              value={92}
-              maxValue={100}
-              unit="%"
-              icon={Activity}
-              color="success"
-            />
-            
-            <CircularGauge
-              title="Nível de Água"
-              value={nivelAgua ? 100 : 20}
-              maxValue={100}
-              unit="%"
-              icon={Droplets}
-              color={nivelAgua ? "primary" : "warning"}
-            />
-          </div>
-        </section>
-
-        {/* Componente do Modal que abre ao clicar no Toast */}
         <SuggestionModal 
             isOpen={isModalOpen} 
             onClose={() => setIsModalOpen(false)} 

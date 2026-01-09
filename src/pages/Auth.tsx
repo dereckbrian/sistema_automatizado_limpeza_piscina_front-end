@@ -133,7 +133,7 @@ const Auth = () => {
             <Droplets className="w-8 h-8 text-primary-foreground" />
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            SmartPool
+            IF-Pool
           </h1>
           <p className="text-muted-foreground mt-1">Sistema Automatizado</p>
         </div>

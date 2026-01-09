@@ -65,7 +65,7 @@ export function AppSidebar() {
               <Droplet className="h-4 w-4 text-primary-foreground" />
             </div>
             {state === "expanded" && (
-              <span className="font-bold text-foreground">SmartPool</span>
+              <span className="font-bold text-foreground">IF-Pool</span>
             )}
           </SidebarGroupLabel>
 

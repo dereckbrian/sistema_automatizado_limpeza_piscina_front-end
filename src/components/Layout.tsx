@@ -64,7 +64,7 @@ const Layout = ({ children }: LayoutProps) => {
               <Droplets className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-bold">SmartPool</h1>
+              <h1 className="text-lg font-bold">IF-Pool</h1>
               <p className="text-xs text-muted-foreground">Sistema Automatizado</p>
             </div>
           </div>

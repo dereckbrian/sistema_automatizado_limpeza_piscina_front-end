@@ -31,7 +31,7 @@ export const Header = () => {
               <Droplet className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">SmartPool</h1>
+              <h1 className="text-xl font-bold text-foreground">IF-Pool</h1>
               <p className="text-xs text-muted-foreground">Sistema Automatizado</p>
             </div>
           </div>

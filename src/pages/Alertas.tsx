@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Bell, AlertTriangle, Info, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button"; 
+import { Bell, AlertTriangle, Info, CheckCircle, Trash2 } from "lucide-react";
+import { toast } from "sonner"; 
 import api from "@/config/axiosConfig.js";
 
-// Interface para tipar os dados que vêm do Java
 interface Alerta {
   id: number;
   titulo: string;
@@ -14,26 +15,35 @@ interface Alerta {
 
 const Alerts = () => {
   const [alerts, setAlerts] = useState<Alerta[]>([]);
+  const carregarAlertas = async () => {
 
-  // Carregar alertas do Back-end
+    const email = localStorage.getItem("userEmail");
+    if (!email) return;
+
+    try {
+      const response = await api.get(`/api/alertas/listar?email=${email}`);
+      setAlerts(response.data);
+    } catch (error) {
+      console.error("Erro ao carregar alertas", error);
+    }
+  };
+
   useEffect(() => {
-    const carregarAlertas = async () => {
-      const email = localStorage.getItem("userEmail");
-      if (!email) return;
-
-      try {
-        const response = await api.get(`/api/alertas/listar?email=${email}`);
-        setAlerts(response.data);
-      } catch (error) {
-        console.error("Erro ao carregar alertas", error);
-      }
-    };
-
     carregarAlertas();
-    // Opcional: Atualizar a cada 10 segundos
     const interval = setInterval(carregarAlertas, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const limparAlertas = async () => {
+    try {
+        await api.delete("/api/alertas/limpar");
+        setAlerts([]); // Limpa visualmente na hora
+        toast.success("Todos os alertas foram removidos.");
+    } catch (error) {
+        console.error("Erro ao limpar alertas", error);
+        toast.error("Erro ao limpar alertas.");
+    }
+  };
 
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -53,7 +63,6 @@ const Alerts = () => {
     }
   };
 
-  // Formatar data (ex: 2024-01-04T10:00 -> 04/01 às 10:00)
   const formatarData = (dataISO: string) => {
     const data = new Date(dataISO);
     return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + 
@@ -68,6 +77,17 @@ const Alerts = () => {
           <h1 className="text-3xl font-bold text-foreground mb-2">Central de Alertas</h1>
           <p className="text-muted-foreground">Histórico de ocorrências do sistema</p>
         </div>
+
+        {alerts.length > 0 && (
+            <Button 
+                variant="destructive" 
+                onClick={limparAlertas}
+                className="gap-2"
+            >
+                <Trash2 className="h-4 w-4" />
+                Limpar Alertas
+            </Button>
+        )}
       </div>
 
       <div className="space-y-4">

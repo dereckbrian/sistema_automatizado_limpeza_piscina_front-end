@@ -1,24 +1,36 @@
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Calendar, TrendingUp, TrendingDown } from "lucide-react";
-import { useState, useEffect } from "react";
-import api from "@/config/axiosConfig.js";
+import { Button } from "@/components/ui/button"; // <--- Importante
+import { Trash2, History as HistoryIcon, Clock } from "lucide-react"; // <--- Importante
 import { toast } from "sonner";
+import api from "@/config/axiosConfig.js";
 
-const History = () => {
-  const [historyData, setHistoryData] = useState([]);
+interface HistoricoItem {
+  id: number;
+  descricao: string;
+  dataEvento: string;
+}
 
-  const fetchHistory = async () => {
+const Historico = () => {
+  const [historyData, setHistoryData] = useState<HistoricoItem[]>([]);
+  const carregarHistorico = async () => {
+    
     try {
-      const response = await api.get("/api/historicoRecuperar"); 
-      setHistoryData(response.data);  
+      const response = await api.get("/api/historicoRecuperar");
+      setHistoryData(response.data);
     } catch (error) {
-      console.error("Erro ao buscar histórico:", error);
+      console.error("Erro ao carregar histórico", error);
     }
   };
 
+  useEffect(() => {
+    carregarHistorico();
+    const interval = setInterval(carregarHistorico, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const clearHistory = async () => {
     try {
-
       await api.delete("/api/historicoLimpar");
       setHistoryData([]); 
       toast.success("Histórico limpo com sucesso!");
@@ -28,93 +40,66 @@ const History = () => {
     }
   };
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);  
+  // Formatar data
+  const formatarData = (dataISO: string) => {
+    const data = new Date(dataISO);
+    return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + 
+           ", " + 
+           data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de Eventos</h1>
-        <p className="text-muted-foreground">Registro completo de atividades e manutenções</p>
-        <button
-          onClick={clearHistory}
-          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-        >
-          Limpar Histórico
-        </button>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Histórico de Eventos</h1>
+          <p className="text-muted-foreground">Registro completo de atividades e manutenções</p>
+        </div>
+        {historyData.length > 0 && (
+            <Button 
+                variant="destructive" 
+                onClick={clearHistory}
+                className="gap-2"
+            >
+                <Trash2 className="h-4 w-4" />
+                Limpar Histórico
+            </Button>
+        )}
       </div>
 
-      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6 bg-gradient-card border-border">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-success/20 border border-success/30">
-              <TrendingUp className="h-6 w-6 text-success" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Eventos este mês</p>
-              <p className="text-2xl font-bold text-foreground">{eventsThisMonth}</p>
-            </div>
-          </div>
-        </Card>
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold mb-4">Eventos Recentes</h2>
 
-        <Card className="p-6 bg-gradient-card border-border">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-warning/20 border border-warning/30">
-              <TrendingDown className="h-6 w-6 text-warning" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Alertas</p>
-              <p className="text-2xl font-bold text-foreground">3</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 bg-gradient-card border-border">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-primary/20 border border-primary/30">
-              <Calendar className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Manutenções</p>
-              <p className="text-2xl font-bold text-foreground">12</p>
-            </div>
-          </div>
-        </Card>
-      </div> */}
-
-      <Card className="border-border bg-gradient-card">
-        <div className="p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground">Eventos Recentes</h2>
-        </div>
-        <div className="divide-y divide-border">
-          {historyData && historyData.length > 0 ? (
-            historyData.map((item, index) => (
-              <div key={index} className="p-4 hover:bg-secondary/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-2 h-2 rounded-full bg-muted`} />
-                    <div>
-                      <p className="font-medium text-foreground">{item.descricao}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(item.dataEvento).toLocaleString()}
-                      </p>
+        {historyData.length === 0 ? (
+           <p className="text-muted-foreground">Nenhum evento registrado.</p>
+        ) : (
+          historyData.map((item) => (
+            <Card key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-accent/5 transition-colors">
+              <div className="flex items-start gap-3">
+                 <div className="mt-1 p-2 bg-primary/10 rounded-full">
+                    <HistoryIcon className="h-4 w-4 text-primary" />
+                 </div>
+                 
+                 <div>
+                    <p className="font-medium text-foreground">
+                        {item.descricao}
+                    </p>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                        <Clock className="h-3 w-3" />
+                        {formatarData(item.dataEvento)}
                     </div>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-muted/20 text-muted">
-                    Registrado
-                  </span>
-                </div>
+                 </div>
               </div>
-            ))
-          ) : (
-            <div className="p-4 text-center">Nenhum evento registrado.</div>
-          )}
-        </div>
-      </Card>
-
+              
+              <div className="text-xs text-muted-foreground bg-secondary/50 px-2 py-1 rounded self-start sm:self-center">
+                  Registrado
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   );
 };
 
-export default History;
+export default Historico;

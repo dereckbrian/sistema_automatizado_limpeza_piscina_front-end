@@ -1,54 +1,95 @@
-import { Card } from "@/components/ui/card";
-import { TrendingUp } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-export const ChartCard = () => {
+// Define o formato dos dados que o gráfico espera
+interface ChartData {
+  horario: string;
+  temp: number;
+  ph: number;
+  turbidez: number;
+}
+
+interface ChartCardProps {
+  data: ChartData[]; // Recebe os dados via props
+}
+
+export const ChartCard = ({ data }: ChartCardProps) => {
   return (
-    <Card className="p-6 border-border bg-gradient-card">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">Qualidade da Água</h3>
-          <p className="text-sm text-muted-foreground">Últimos 7 dias</p>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-success/20 border border-success/30">
-          <TrendingUp className="h-4 w-4 text-success" />
-          <span className="text-sm font-medium text-success">+12%</span>
-        </div>
-      </div>
-      
-      <div className="relative h-48">
-        {/* Simplified wave visualization */}
-        <svg className="w-full h-full" viewBox="0 0 400 150" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="waveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="hsl(190 80% 50%)" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="hsl(190 80% 50%)" stopOpacity="0.1" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M0,75 Q50,50 100,75 T200,75 T300,75 T400,75 L400,150 L0,150 Z"
-            fill="url(#waveGradient)"
-            className="animate-pulse"
-          />
-          <path
-            d="M0,75 Q50,50 100,75 T200,75 T300,75 T400,75"
-            fill="none"
-            stroke="hsl(190 80% 50%)"
-            strokeWidth="2"
-            className="drop-shadow-glow-accent"
-          />
-        </svg>
-        
-        {/* Timeline labels */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-muted-foreground px-2">
-          <span>Seg</span>
-          <span>Ter</span>
-          <span>Qua</span>
-          <span>Qui</span>
-          <span>Sex</span>
-          <span>Sáb</span>
-          <span>Dom</span>
-        </div>
-      </div>
+    <Card className="col-span-1 lg:col-span-2 h-[400px]">
+      <CardHeader>
+        <CardTitle>Histórico de Monitoramento</CardTitle>
+      </CardHeader>
+      <CardContent className="h-[320px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            <XAxis 
+              dataKey="horario" 
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            {/* Eixo Esquerdo: Temperatura e Turbidez (0 a 40) */}
+            <YAxis 
+              yAxisId="left" 
+              domain={[0, 40]} 
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              label={{ value: 'Temp / NTU', angle: -90, position: 'insideLeft' }}
+            />
+            <YAxis 
+              yAxisId="right" 
+              orientation="right" 
+              domain={[6, 8.5]} // Escala para pH
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              label={{ value: 'pH', angle: 90, position: 'insideRight' }}
+            />
+            <Tooltip 
+              contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px' }}
+              labelStyle={{ color: '#fff' }}
+            />
+            <Legend />
+            
+            {/* Linha de Temperatura (Verde/Azul) */}
+            <Line 
+              yAxisId="left"
+              type="monotone" 
+              dataKey="temp" 
+              name="Temperatura"
+              stroke="#22c55e" 
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+
+            {/* Linha de pH (Laranja) */}
+            <Line 
+              yAxisId="right"
+              type="monotone" 
+              dataKey="ph" 
+              name="pH"
+              stroke="#f97316" 
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+
+            {/* NOVA LINHA: Turbidez (Azul) */}
+            <Line 
+              yAxisId="left"
+              type="monotone" 
+              dataKey="turbidez" 
+              name="Turbidez (NTU)"
+              stroke="#3b82f6" // Azul
+              strokeWidth={2}
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
     </Card>
   );
 };
